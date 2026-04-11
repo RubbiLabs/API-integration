@@ -18,7 +18,8 @@ const REQUIRED_ENV = {
   BACKEND_WALLET_PRIVATE_KEY:
     "0x0000000000000000000000000000000000000000000000000000000000000001",
   SUDO_API_KEY: "test-key",
-  SUDO_BASE_URL: "https://api.sudo.africa/v2",
+  SUDO_BASE_URL: "https://api.sudo.africa",
+  SUDO_DEFAULT_CUSTOMER_ID: "customer_test_123",
   SUDO_WEBHOOK_SECRET: "test-webhook-secret",
   JWT_SECRET: "test-jwt-secret-test-jwt-secret-1234",
   JWT_EXPIRES_IN: "24h",
@@ -27,16 +28,32 @@ const REQUIRED_ENV = {
 type HandleCardIssuerWebhook = (
   app: FastifyInstance,
   body: {
+    _id?: string
+    type?: string
     event?: string
     data?: {
+      _id?: string
       cardId?: string
       amount?: string | number
       merchantName?: string
       merchantCategory?: string
+      object?: {
+        _id?: string
+        card?: string | { _id?: string }
+        amount?: string | number
+        merchant?: {
+          name?: string
+          category?: string
+        }
+        transactionMetadata?: {
+          type?: string
+        }
+      }
     }
   },
   signature: string | undefined,
-) => Promise<{ ok: true }>
+  rawBody: string,
+) => Promise<Record<string, unknown>>
 
 let handleCardIssuerWebhook: HandleCardIssuerWebhook
 
@@ -91,6 +108,10 @@ describe("handleCardIssuerWebhook", () => {
           data: { cardId: "card_1", amount: "12.00" },
         },
         "wrong-signature",
+        JSON.stringify({
+          event: "card.charge",
+          data: { cardId: "card_1", amount: "12.00" },
+        }),
       ),
     ).rejects.toThrow("Invalid webhook signature")
   })
@@ -122,7 +143,12 @@ describe("handleCardIssuerWebhook", () => {
     } as unknown as FastifyInstance
 
     await expect(
-      handleCardIssuerWebhook(app, payload, makeSignature(payload)),
+      handleCardIssuerWebhook(
+        app,
+        payload,
+        makeSignature(payload),
+        JSON.stringify(payload),
+      ),
     ).rejects.toThrow("Insufficient RUBBI balance")
   })
 
@@ -178,6 +204,7 @@ describe("handleCardIssuerWebhook", () => {
       app,
       payload,
       makeSignature(payload),
+      JSON.stringify(payload),
     )
 
     expect(result).toEqual({ ok: true })
@@ -188,5 +215,70 @@ describe("handleCardIssuerWebhook", () => {
       type: TransactionType.SPEND,
       description: "DSTV charge",
     })
+  })
+
+  test("processes Sudo transaction.created payload shape", async () => {
+    const payload = {
+      type: "transaction.created",
+      data: {
+        _id: "webhook-data-1",
+        object: {
+          _id: "txn_1",
+          card: "issuer-card-3",
+          amount: -7.5,
+          merchant: {
+            name: "Canva",
+            category: "software",
+          },
+          transactionMetadata: {
+            type: "purchase",
+          },
+        },
+      },
+    }
+
+    const txCalls: { updated: boolean } = { updated: false }
+
+    const app = {
+      httpErrors: makeHttpErrors(),
+      redis: {
+        set: async () => "OK",
+      },
+      prisma: {
+        card: {
+          findUnique: async () => ({
+            id: "card-db-id-3",
+            issuerId: "issuer-card-3",
+            user: {
+              id: "user-3",
+              rubbiBalance: new Prisma.Decimal("100.00"),
+            },
+          }),
+        },
+        $transaction: async (callback: (tx: any) => Promise<void>) => {
+          await callback({
+            user: {
+              update: async () => {
+                txCalls.updated = true
+                return { rubbiBalance: new Prisma.Decimal("92.50") }
+              },
+            },
+            transaction: {
+              create: async () => undefined,
+            },
+          })
+        },
+      },
+    } as unknown as FastifyInstance
+
+    const result = await handleCardIssuerWebhook(
+      app,
+      payload,
+      makeSignature(payload),
+      JSON.stringify(payload),
+    )
+
+    expect(result).toMatchObject({ ok: true })
+    expect(txCalls.updated).toBeTrue()
   })
 })

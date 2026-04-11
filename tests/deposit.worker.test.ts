@@ -34,7 +34,8 @@ const REQUIRED_ENV = {
   BACKEND_WALLET_PRIVATE_KEY:
     "0x0000000000000000000000000000000000000000000000000000000000000001",
   SUDO_API_KEY: "test-key",
-  SUDO_BASE_URL: "https://api.sudo.africa/v2",
+  SUDO_BASE_URL: "https://api.sudo.africa",
+  SUDO_DEFAULT_CUSTOMER_ID: "customer_test_123",
   SUDO_WEBHOOK_SECRET: "test-webhook-secret",
   JWT_SECRET: "test-jwt-secret-test-jwt-secret-1234",
   JWT_EXPIRES_IN: "24h",

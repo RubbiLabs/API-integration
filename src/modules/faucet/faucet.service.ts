@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify"
 import { decodeEventLog, Hex } from "viem"
 
+import { env } from "../../config/index.js"
 import { RubbiTokenABI } from "../../lib/monad/abis/RubbiToken.abi.js"
 import { contractAddresses, publicClient } from "../../lib/monad/client.js"
 
@@ -12,6 +13,18 @@ export async function claimFaucet(
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash as Hex,
   })
+
+  if (env.MONAD_SETTLEMENT_TAG !== "latest") {
+    const settledBlock = await publicClient.getBlock({
+      blockTag: env.MONAD_SETTLEMENT_TAG,
+    })
+
+    if (receipt.blockNumber > settledBlock.number) {
+      throw app.httpErrors.badRequest(
+        `Transaction is not ${env.MONAD_SETTLEMENT_TAG} yet. Retry after more confirmations.`,
+      )
+    }
+  }
 
   const normalizedWallet = walletAddress.toLowerCase()
   let matchedClaim = false

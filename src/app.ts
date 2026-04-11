@@ -72,6 +72,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.decorate("cardIssuer", new SudoCardIssuer({
     apiKey: env.SUDO_API_KEY,
     baseUrl: env.SUDO_BASE_URL,
+    defaultCustomerId: env.SUDO_DEFAULT_CUSTOMER_ID,
   }))
 
   app.decorate("authenticate", async function authenticate(request, reply) {

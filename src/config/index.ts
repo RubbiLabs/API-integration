@@ -15,6 +15,7 @@ const envSchema = z.object({
   MONAD_WS_URL: z.string().url().optional(),
   MONAD_CHAIN_ID: z.coerce.number().int().positive(),
   MONAD_LOG_BACKFILL_CHUNK: z.coerce.number().int().positive().default(100),
+  MONAD_SETTLEMENT_TAG: z.enum(["latest", "safe", "finalized"]).default("safe"),
 
   RUBBI_TOKEN_ADDRESS: z.string().regex(hexAddress),
   MODAL_CONTRACT_ADDRESS: z.string().regex(hexAddress),
@@ -25,7 +26,8 @@ const envSchema = z.object({
   BACKEND_WALLET_PRIVATE_KEY: z.string().regex(hexPrivateKey),
 
   SUDO_API_KEY: z.string().min(1),
-  SUDO_BASE_URL: z.string().url().default("https://api.sudo.africa/v2"),
+  SUDO_BASE_URL: z.string().url().default("https://api.sudo.africa"),
+  SUDO_DEFAULT_CUSTOMER_ID: z.string().min(1).optional(),
   SUDO_WEBHOOK_SECRET: z.string().min(1),
 
   JWT_SECRET: z.string().min(32),
