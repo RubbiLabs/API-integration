@@ -104,13 +104,27 @@ export async function buildApp(): Promise<FastifyInstance> {
   let workers: Worker[] = []
 
   app.addHook("onReady", async () => {
-    stopListener = await startMonadListener(app)
+    // Do not block Fastify readiness on external provider startup.
+    // Listener backfill/RPC calls can exceed onReady timeout in hosted environments.
     workers = [
       startDepositWorker(app),
       startTopupWorker(app),
       startSubscriptionWorker(app),
     ]
-    await scheduleSubscriptionChecks()
+
+    void (async () => {
+      try {
+        stopListener = await startMonadListener(app)
+      } catch (error) {
+        app.log.error({ err: error }, "Monad listener failed during background startup")
+      }
+
+      try {
+        await scheduleSubscriptionChecks()
+      } catch (error) {
+        app.log.error({ err: error }, "Failed to schedule subscription checks")
+      }
+    })()
   })
 
   app.addHook("onClose", async () => {
