@@ -5,6 +5,7 @@ import {
   defineChain,
   Hex,
   http,
+  webSocket,
 } from "viem"
 
 import { env } from "../../config/index.js"
@@ -20,6 +21,13 @@ export const publicClient = createPublicClient({
   chain: monadChain,
   transport: http(env.MONAD_RPC_URL),
 })
+
+export const wsPublicClient = env.MONAD_WS_URL
+  ? createPublicClient({
+      chain: monadChain,
+      transport: webSocket(env.MONAD_WS_URL),
+    })
+  : null
 
 const isZeroPrivateKey = /^0x0{64}$/i.test(env.BACKEND_WALLET_PRIVATE_KEY)
 const hasBackendWallet = !isZeroPrivateKey

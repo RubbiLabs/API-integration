@@ -12,7 +12,9 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1),
 
   MONAD_RPC_URL: z.string().url(),
+  MONAD_WS_URL: z.string().url().optional(),
   MONAD_CHAIN_ID: z.coerce.number().int().positive(),
+  MONAD_LOG_BACKFILL_CHUNK: z.coerce.number().int().positive().default(100),
 
   RUBBI_TOKEN_ADDRESS: z.string().regex(hexAddress),
   MODAL_CONTRACT_ADDRESS: z.string().regex(hexAddress),
