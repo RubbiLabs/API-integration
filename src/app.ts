@@ -1,0 +1,122 @@
+import "./types/index.js"
+
+import fastifyJwt from "@fastify/jwt"
+import fastifyRateLimit from "@fastify/rate-limit"
+import fastifySwagger from "@fastify/swagger"
+import fastifySwaggerUi from "@fastify/swagger-ui"
+import Fastify, { FastifyInstance } from "fastify"
+import { Worker } from "bullmq"
+
+import { env } from "./config/index.js"
+import { SudoCardIssuer } from "./lib/card-issuer/sudo.adapter.js"
+import { closeQueueResources } from "./lib/queue.js"
+import { startMonadListener } from "./listeners/monad.listener.js"
+import { registerAuthRoutes } from "./modules/auth/auth.routes.js"
+import { registerCardsRoutes } from "./modules/cards/cards.routes.js"
+import { registerDepositsRoutes } from "./modules/deposits/deposits.routes.js"
+import { registerFaucetRoutes } from "./modules/faucet/faucet.routes.js"
+import { registerSubscriptionsRoutes } from "./modules/subscriptions/subscriptions.routes.js"
+import { registerTransactionsRoutes } from "./modules/transactions/transactions.routes.js"
+import { registerUsersRoutes } from "./modules/users/users.routes.js"
+import { registerWebhooksRoutes } from "./modules/webhooks/webhooks.routes.js"
+import { prismaPlugin } from "./plugins/prisma.js"
+import { redisPlugin } from "./plugins/redis.js"
+import { sensiblePlugin } from "./plugins/sensible.js"
+import { startDepositWorker } from "./workers/deposit.worker.js"
+import {
+  scheduleSubscriptionChecks,
+  startSubscriptionWorker,
+} from "./workers/subscription.worker.js"
+import { startTopupWorker } from "./workers/topup.worker.js"
+
+export async function buildApp(): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: {
+      level: env.NODE_ENV === "production" ? "info" : "debug",
+      transport:
+        env.NODE_ENV === "development"
+          ? { target: "pino-pretty", options: { colorize: true } }
+          : undefined,
+    },
+    trustProxy: true,
+  })
+
+  await app.register(sensiblePlugin)
+  await app.register(prismaPlugin)
+  await app.register(redisPlugin)
+
+  await app.register(fastifyJwt, {
+    secret: env.JWT_SECRET,
+    sign: { expiresIn: env.JWT_EXPIRES_IN },
+  })
+
+  await app.register(fastifyRateLimit, {
+    max: 120,
+    timeWindow: "1 minute",
+  })
+
+  await app.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: "Rubbi API",
+        version: "0.1.0",
+        description: "Rubbi backend API",
+      },
+    },
+  })
+
+  await app.register(fastifySwaggerUi, {
+    routePrefix: "/docs",
+  })
+
+  app.decorate("cardIssuer", new SudoCardIssuer({
+    apiKey: env.SUDO_API_KEY,
+    baseUrl: env.SUDO_BASE_URL,
+  }))
+
+  app.decorate("authenticate", async function authenticate(request, reply) {
+    try {
+      await request.jwtVerify()
+    } catch {
+      throw reply.unauthorized("Invalid or expired token")
+    }
+  })
+
+  app.get("/health", async () => ({
+    status: "ok",
+    service: "rubbi-api",
+    timestamp: new Date().toISOString(),
+  }))
+
+  await app.register(async (api) => {
+    await registerAuthRoutes(api)
+    await registerUsersRoutes(api)
+    await registerCardsRoutes(api)
+    await registerDepositsRoutes(api)
+    await registerTransactionsRoutes(api)
+    await registerSubscriptionsRoutes(api)
+    await registerFaucetRoutes(api)
+    await registerWebhooksRoutes(api)
+  }, { prefix: "/api/v1" })
+
+  let stopListener: (() => void) | null = null
+  let workers: Worker[] = []
+
+  app.addHook("onReady", async () => {
+    stopListener = await startMonadListener(app)
+    workers = [
+      startDepositWorker(app),
+      startTopupWorker(app),
+      startSubscriptionWorker(app),
+    ]
+    await scheduleSubscriptionChecks()
+  })
+
+  app.addHook("onClose", async () => {
+    stopListener?.()
+    await Promise.all(workers.map((worker) => worker.close()))
+    await closeQueueResources()
+  })
+
+  return app
+}
