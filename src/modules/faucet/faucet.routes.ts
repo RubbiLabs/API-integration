@@ -6,7 +6,7 @@ export async function registerFaucetRoutes(app: FastifyInstance) {
   const controller = buildFaucetController(app)
 
   app.post("/faucet/claim", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["faucet"],
       description: "Confirm a user-signed faucet claim transaction",
@@ -15,7 +15,7 @@ export async function registerFaucetRoutes(app: FastifyInstance) {
   })
 
   app.get("/faucet/cooldown", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["faucet"],
       description: "Get faucet cooldown for current wallet",

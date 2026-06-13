@@ -10,22 +10,22 @@ import {
 
 import { env } from "../../config/index.js"
 
-export const monadChain = defineChain({
-  id: env.MONAD_CHAIN_ID,
-  name: "Monad",
-  nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
-  rpcUrls: { default: { http: [env.MONAD_RPC_URL] } },
+export const arbitrumChain = defineChain({
+  id: env.ARBITRUM_CHAIN_ID,
+  name: "Arbitrum One",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: [env.ARBITRUM_RPC_URL] } },
 })
 
 export const publicClient = createPublicClient({
-  chain: monadChain,
-  transport: http(env.MONAD_RPC_URL),
+  chain: arbitrumChain,
+  transport: http(env.ARBITRUM_RPC_URL),
 })
 
-export const wsPublicClient = env.MONAD_WS_URL
+export const wsPublicClient = env.ARBITRUM_WS_URL
   ? createPublicClient({
-      chain: monadChain,
-      transport: webSocket(env.MONAD_WS_URL),
+      chain: arbitrumChain,
+      transport: webSocket(env.ARBITRUM_WS_URL),
     })
   : null
 
@@ -39,8 +39,8 @@ export const backendAccount = hasBackendWallet
 export const walletClient = backendAccount
   ? createWalletClient({
       account: backendAccount,
-      chain: monadChain,
-      transport: http(env.MONAD_RPC_URL),
+      chain: arbitrumChain,
+      transport: http(env.ARBITRUM_RPC_URL),
     })
   : null
 

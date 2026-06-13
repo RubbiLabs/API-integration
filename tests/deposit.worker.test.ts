@@ -1,9 +1,31 @@
 import { Prisma, TransactionType } from "@prisma/client"
-import { beforeAll, describe, expect, test } from "bun:test"
-import { FastifyInstance } from "fastify"
+import { beforeAll, describe, expect, mock, test } from "bun:test"
+
+// Mock ioredis to prevent real Redis connections
+const MockRedisClass = class MockRedis {
+  on() { return this }
+  quit() { return Promise.resolve() }
+}
+mock.module("ioredis", () => ({
+  default: MockRedisClass,
+  Redis: MockRedisClass,
+}))
+
+// Mock bullmq
+mock.module("bullmq", () => ({
+  Queue: class MockQueue {
+    add() { return { id: "mock" } }
+    close() {}
+  },
+  Worker: class MockWorker {
+    constructor() {}
+    on() { return this }
+    close() {}
+  },
+}))
 
 type ProcessDepositJob = (
-  app: FastifyInstance,
+  app: any,
   data: {
     walletAddress: string
     txHash: string
@@ -24,8 +46,10 @@ const REQUIRED_ENV = {
   PORT: "3000",
   DATABASE_URL: "postgresql://user:password@localhost:5432/rubbi",
   REDIS_URL: "redis://localhost:6379",
-  MONAD_RPC_URL: "https://rpc.monad.xyz",
-  MONAD_CHAIN_ID: "10143",
+  ARBITRUM_RPC_URL: "https://arb1.arbitrum.io/rpc",
+  ARBITRUM_CHAIN_ID: "42161",
+  ARBITRUM_LOG_BACKFILL_CHUNK: "100",
+  ARBITRUM_SETTLEMENT_TAG: "safe",
   RUBBI_TOKEN_ADDRESS: "0x0000000000000000000000000000000000000001",
   MODAL_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000002",
   AUTH_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000003",
@@ -43,7 +67,7 @@ const REQUIRED_ENV = {
 
 beforeAll(async () => {
   Object.assign(process.env, REQUIRED_ENV)
-  ;({ processDepositJob } = await import("../src/workers/deposit.processor.ts"))
+  ;({ processDepositJob } = await import("../src/workers/deposit.processor.js"))
 })
 
 describe("processDepositJob", () => {
@@ -78,7 +102,7 @@ describe("processDepositJob", () => {
             },
           }),
       },
-    } as unknown as FastifyInstance
+    } as any
 
     const result = await processDepositJob(
       app,
@@ -135,7 +159,7 @@ describe("processDepositJob", () => {
             },
           }),
       },
-    } as unknown as FastifyInstance
+    } as any
 
     await processDepositJob(
       app,

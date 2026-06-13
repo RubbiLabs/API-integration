@@ -3,11 +3,11 @@ import { FastifyInstance } from "fastify"
 import { formatUnits, hexToString } from "viem"
 
 import { env } from "../config/index.js"
-import { AuthenticationABI } from "../lib/monad/abis/Authentication.abi.js"
-import { ModalContractABI } from "../lib/monad/abis/ModalContract.abi.js"
-import { RubbiTokenABI } from "../lib/monad/abis/RubbiToken.abi.js"
-import { SubscriptionServiceABI } from "../lib/monad/abis/SubscriptionService.abi.js"
-import { contractAddresses, publicClient, wsPublicClient } from "../lib/monad/client.js"
+import { AuthenticationABI } from "../lib/arbitrum/abis/Authentication.abi.js"
+import { ModalContractABI } from "../lib/arbitrum/abis/ModalContract.abi.js"
+import { RubbiTokenABI } from "../lib/arbitrum/abis/RubbiToken.abi.js"
+import { SubscriptionServiceABI } from "../lib/arbitrum/abis/SubscriptionService.abi.js"
+import { contractAddresses, publicClient, wsPublicClient } from "../lib/arbitrum/client.js"
 import { depositQueue } from "../lib/queue.js"
 
 type UnwatchFn = () => void
@@ -19,7 +19,7 @@ type GenericLog = {
   blockNumber?: bigint
 }
 
-const MONAD_LOG_BACKFILL_CHUNK = BigInt(env.MONAD_LOG_BACKFILL_CHUNK)
+const ARBITRUM_LOG_BACKFILL_CHUNK = BigInt(env.ARBITRUM_LOG_BACKFILL_CHUNK)
 
 function checkpointKey(eventName: string) {
   return `listener:block:${eventName}`
@@ -95,9 +95,9 @@ async function replayEventInChunks({
   let cursor = fromBlock
   while (cursor <= latest) {
     const toBlock =
-      cursor + MONAD_LOG_BACKFILL_CHUNK - 1n > latest
+      cursor + ARBITRUM_LOG_BACKFILL_CHUNK - 1n > latest
         ? latest
-        : cursor + MONAD_LOG_BACKFILL_CHUNK - 1n
+        : cursor + ARBITRUM_LOG_BACKFILL_CHUNK - 1n
 
     const logs = await (
       publicClient as unknown as {
@@ -127,7 +127,7 @@ async function getLiveStartBlock() {
   return (await publicClient.getBlockNumber()) + 1n
 }
 
-async function handleDepositLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleDepositLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const user = (log.args as { user?: string }).user
     const amount = (log.args as { _amount?: bigint })._amount
@@ -165,7 +165,7 @@ async function handleDepositLogs(app: FastifyInstance, logs: GenericLog[]) {
   await saveCheckpoint(app, "DepositSuccessful", logs)
 }
 
-async function handleWithdrawalLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleWithdrawalLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const walletAddress = (log.args as { user?: string }).user?.toLowerCase()
     const amount = (log.args as { _amount?: bigint })._amount
@@ -221,7 +221,7 @@ async function handleWithdrawalLogs(app: FastifyInstance, logs: GenericLog[]) {
   await saveCheckpoint(app, "WithdrawalSuccessful", logs)
 }
 
-async function handleMemberEnrolledLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleMemberEnrolledLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const walletAddress = (log.args as { _address?: string })._address?.toLowerCase()
     const bytesName = (log.args as { name?: `0x${string}` }).name
@@ -246,7 +246,7 @@ async function handleMemberEnrolledLogs(app: FastifyInstance, logs: GenericLog[]
   await saveCheckpoint(app, "MemberEnrolled", logs)
 }
 
-async function handleSubscriptionStartedLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleSubscriptionStartedLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const walletAddress = (log.args as { subscriber?: string }).subscriber?.toLowerCase()
     const planId = (log.args as { planId?: bigint }).planId
@@ -265,10 +265,11 @@ async function handleSubscriptionStartedLogs(app: FastifyInstance, logs: Generic
     }
 
     await app.prisma.subscription.upsert({
-      where: { id: `${user.id}:${Number(planId)}` },
+      where: {
+        userId_onChainPlanId: { userId: user.id, onChainPlanId: Number(planId) },
+      },
       update: { status: SubStatus.ACTIVE },
       create: {
-        id: `${user.id}:${Number(planId)}`,
         userId: user.id,
         onChainPlanId: Number(planId),
         planName: `Plan ${Number(planId)}`,
@@ -281,7 +282,7 @@ async function handleSubscriptionStartedLogs(app: FastifyInstance, logs: Generic
   await saveCheckpoint(app, "SubscriptionStarted", logs)
 }
 
-async function handleSubscriptionPaidLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleSubscriptionPaidLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const from = (log.args as { from?: string }).from?.toLowerCase()
     const fee = (log.args as { fee?: bigint }).fee
@@ -331,7 +332,7 @@ async function handleSubscriptionPaidLogs(app: FastifyInstance, logs: GenericLog
   await saveCheckpoint(app, "SubscriptionPaid", logs)
 }
 
-async function handleSubscriptionPausedLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleSubscriptionPausedLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const walletAddress = (log.args as { subscriber?: string }).subscriber?.toLowerCase()
     const planId = (log.args as { planId?: bigint }).planId
@@ -363,7 +364,7 @@ async function handleSubscriptionPausedLogs(app: FastifyInstance, logs: GenericL
   await saveCheckpoint(app, "SubscriptionPaused", logs)
 }
 
-async function handleSubscriptionResumedLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleSubscriptionResumedLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const walletAddress = (log.args as { subscriber?: string }).subscriber?.toLowerCase()
     const planId = (log.args as { planId?: bigint }).planId
@@ -395,7 +396,7 @@ async function handleSubscriptionResumedLogs(app: FastifyInstance, logs: Generic
   await saveCheckpoint(app, "SubscriptionResumed", logs)
 }
 
-async function handleFaucetClaimedLogs(app: FastifyInstance, logs: GenericLog[]) {
+export async function handleFaucetClaimedLogs(app: FastifyInstance, logs: GenericLog[]) {
   for (const log of logs) {
     const claimer = (log.args as { claimer?: string }).claimer?.toLowerCase()
     const amount = (log.args as { amount?: bigint }).amount
@@ -442,7 +443,7 @@ async function handleFaucetClaimedLogs(app: FastifyInstance, logs: GenericLog[])
   await saveCheckpoint(app, "FaucetClaimed", logs)
 }
 
-export async function startMonadListener(app: FastifyInstance) {
+export async function startArbitrumListener(app: FastifyInstance) {
   const unwatchers: UnwatchFn[] = []
   const liveClient = wsPublicClient ?? publicClient
 
@@ -482,7 +483,7 @@ export async function startMonadListener(app: FastifyInstance) {
         await handler(app, logs)
       },
       onError: (error: unknown) => {
-        app.log.error({ err: error, eventName }, "Monad event listener failed")
+        app.log.error({ err: error, eventName }, "Arbitrum event listener failed")
       },
     })
 
@@ -548,9 +549,9 @@ export async function startMonadListener(app: FastifyInstance) {
   app.log.info(
     {
       liveTransport: wsPublicClient ? "websocket" : "http-polling",
-      backfillChunkSize: env.MONAD_LOG_BACKFILL_CHUNK,
+      backfillChunkSize: env.ARBITRUM_LOG_BACKFILL_CHUNK,
     },
-    "Monad event listeners started",
+    "Arbitrum event listeners started",
   )
 
   return () => {

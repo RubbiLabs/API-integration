@@ -2,8 +2,8 @@ import { Prisma } from "@prisma/client"
 import { FastifyInstance } from "fastify"
 import { Hex, hexToString, stringToHex } from "viem"
 
-import { AuthenticationABI } from "../../lib/monad/abis/Authentication.abi.js"
-import { contractAddresses, publicClient } from "../../lib/monad/client.js"
+import { AuthenticationABI } from "../../lib/arbitrum/abis/Authentication.abi.js"
+import { contractAddresses, publicClient } from "../../lib/arbitrum/client.js"
 import { LoginBody, RegisterBody } from "./auth.schema.js"
 
 function normalizeWalletAddress(walletAddress: string) {

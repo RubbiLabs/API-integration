@@ -6,25 +6,25 @@ export async function registerCardsRoutes(app: FastifyInstance) {
   const controller = buildCardsController(app)
 
   app.get("/cards/me", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["cards"], description: "Get current user card summary" },
     handler: controller.me,
   })
 
   app.post("/cards/freeze", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["cards"], description: "Freeze current user card" },
     handler: controller.freeze,
   })
 
   app.post("/cards/unfreeze", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["cards"], description: "Unfreeze current user card" },
     handler: controller.unfreeze,
   })
 
   app.get("/cards/me/number", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["cards"], description: "Reveal full PAN from issuer" },
     handler: controller.reveal,
   })

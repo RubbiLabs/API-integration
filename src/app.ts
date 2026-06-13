@@ -10,7 +10,7 @@ import { Worker } from "bullmq"
 import { env } from "./config/index.js"
 import { SudoCardIssuer } from "./lib/card-issuer/sudo.adapter.js"
 import { closeQueueResources } from "./lib/queue.js"
-import { startMonadListener } from "./listeners/monad.listener.js"
+import { startArbitrumListener } from "./listeners/arbitrum.listener.js"
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js"
 import { registerCardsRoutes } from "./modules/cards/cards.routes.js"
 import { registerDepositsRoutes } from "./modules/deposits/deposits.routes.js"
@@ -114,9 +114,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     void (async () => {
       try {
-        stopListener = await startMonadListener(app)
+        stopListener = await startArbitrumListener(app)
       } catch (error) {
-        app.log.error({ err: error }, "Monad listener failed during background startup")
+        app.log.error({ err: error }, "Arbitrum listener failed during background startup")
       }
 
       try {

@@ -6,7 +6,7 @@ export async function registerUsersRoutes(app: FastifyInstance) {
   const controller = buildUsersController(app)
 
   app.get("/users/me", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["users"],
       description: "Get current authenticated user profile",

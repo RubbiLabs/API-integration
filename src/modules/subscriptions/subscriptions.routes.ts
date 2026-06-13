@@ -6,19 +6,19 @@ export async function registerSubscriptionsRoutes(app: FastifyInstance) {
   const controller = buildSubscriptionsController(app)
 
   app.get("/subscriptions/plans", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["subscriptions"], description: "List active plans from chain" },
     handler: controller.plans,
   })
 
   app.get("/subscriptions/me", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: { tags: ["subscriptions"], description: "List user subscriptions from chain" },
     handler: controller.me,
   })
 
   app.post("/subscriptions/start", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["subscriptions"],
       description: "Confirm a wallet-signed start subscription transaction",
@@ -27,7 +27,7 @@ export async function registerSubscriptionsRoutes(app: FastifyInstance) {
   })
 
   app.post("/subscriptions/:planId/pause", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["subscriptions"],
       description: "Confirm a wallet-signed pause subscription transaction",
@@ -36,7 +36,7 @@ export async function registerSubscriptionsRoutes(app: FastifyInstance) {
   })
 
   app.post("/subscriptions/:planId/resume", {
-    preHandler: app.authenticate,
+    onRequest: app.authenticate,
     schema: {
       tags: ["subscriptions"],
       description: "Confirm a wallet-signed resume subscription transaction",

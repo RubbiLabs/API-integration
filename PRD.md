@@ -8,9 +8,9 @@
 
 ## 1. Product Overview
 
-Rubbi is a crypto-powered virtual card platform built on the **Monad blockchain**. Users interact with on-chain contracts to deposit RUBBI tokens and pay for subscriptions. The backend bridges:
+Rubbi is a crypto-powered virtual card platform built on the **Arbitrum blockchain**. Users interact with on-chain contracts to deposit RUBBI tokens and pay for subscriptions. The backend bridges:
 
-- **On-chain rails** — 5 deployed Monad smart contracts (ABIs confirmed)
+- **On-chain rails** — 5 deployed Arbitrum smart contracts (ABIs confirmed)
 - **Internal ledger** — RUBBI balance as the single source of truth
 - **Card issuer rails** — Sudo Africa virtual Visa cards
 
@@ -20,7 +20,7 @@ Rubbi is a crypto-powered virtual card platform built on the **Monad blockchain*
 
 ## 2. Deployed Smart Contracts
 
-There are **5 contracts** on Monad. ABIs have been confirmed. Contract addresses must be set in `.env` — retrieve from the smart contracts dashboard.
+There are **5 contracts** on Arbitrum. ABIs have been confirmed. Contract addresses must be set in `.env` — retrieve from the smart contracts dashboard.
 
 | Contract | Purpose | Key Events |
 |---|---|---|
@@ -272,9 +272,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/rubbi
 
 # Redis
 REDIS_URL=redis://localhost:6379
+# Arbitrum Network
 
-# Monad Network
-MONAD_RPC_URL=https://rpc.monad.xyz
+ARBITRUM_RPC_URL=https://arb1.arbitrum.io/rpc
 MONAD_CHAIN_ID=10143
 
 # Contract Addresses (retrieve from smart contracts dashboard)
@@ -351,12 +351,12 @@ rubbi-backend/
 │   │   ├── topup.worker.ts
 │   │   └── subscription.worker.ts
 │   ├── listeners/
-│   │   └── monad.listener.ts
+│   │   └── arbitrum.listener.ts
 │   ├── lib/
 │   │   ├── card-issuer/
 │   │   │   ├── index.ts                # ICardIssuer interface
 │   │   │   └── sudo.adapter.ts
-│   │   ├── monad/
+│   │   ├── arbitrum/
 │   │   │   ├── client.ts
 │   │   │   └── abis/
 │   │   │       ├── RubbiToken.abi.ts
@@ -463,22 +463,22 @@ enum SubStatus       { ACTIVE PAUSED CANCELLED }
 
 ## 8. Viem Client Setup
 
-### `src/lib/monad/client.ts`
+### `src/lib/arbitrum/client.ts`
 ```typescript
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { defineChain } from 'viem'
 
-export const monad = defineChain({
-  id: Number(process.env.MONAD_CHAIN_ID),
-  name: 'Monad',
-  nativeCurrency: { name: 'MON', symbol: 'MON', decimals: 18 },
-  rpcUrls: { default: { http: [process.env.MONAD_RPC_URL!] } }
+export const arbitrum = defineChain({
+  id: Number(process.env.ARBITRUM_CHAIN_ID),
+  name: 'Arbitrum One',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: [process.env.ARBITRUM_RPC_URL!] } }
 })
 
 // Read-only client — for listening to events and reading state
 export const publicClient = createPublicClient({
-  chain: monad,
+  chain: arbitrum,
   transport: http()
 })
 
@@ -488,7 +488,7 @@ export const backendAccount = privateKeyToAccount(
 )
 export const walletClient = createWalletClient({
   account: backendAccount,
-  chain: monad,
+  chain: arbitrum,
   transport: http()
 })
 ```
@@ -497,7 +497,7 @@ export const walletClient = createWalletClient({
 Copy the `abi` array from each JSON file in `contract-ABIs/` into the corresponding TypeScript file as a typed `as const` export. Example:
 
 ```typescript
-// src/lib/monad/abis/ModalContract.abi.ts
+// src/lib/arbitrum/abis/ModalContract.abi.ts
 export const ModalContractABI = [
   {
     type: 'event',
@@ -513,9 +513,9 @@ export const ModalContractABI = [
 
 ---
 
-## 9. Monad Event Listener
+## 9. Arbitrum Event Listener
 
-`src/listeners/monad.listener.ts` is a long-lived process. Start it in Fastify's `onReady` hook.
+`src/listeners/arbitrum.listener.ts` is a long-lived process. Start it in Fastify's `onReady` hook.
 
 ### Events to Watch
 
@@ -562,11 +562,11 @@ publicClient.watchContractEvent({
 ## 10. Deposit-to-Card Full Pipeline
 
 ```
-User calls ModalContract.deposit(_amount) on Monad
+User calls ModalContract.deposit(_amount) on Arbitrum
           ↓ (~0.4s block time)
 Contract emits DepositSuccessful(user, _amount)
           ↓ (<100ms)
-monad.listener.ts detects event
+arbitrum.listener.ts detects event
           ↓
 Redis dedup check (key: deposit:seen:{txHash}, TTL 24h)
           ↓
@@ -804,7 +804,7 @@ export const subscriptionQueue = new Queue('subscription-queue', { connection: r
 | Sudo Africa top-up fails | Retry 3x → rollback → alert ops |
 | Webhook HMAC invalid | 401 + log |
 | `rubbiBalance` would go negative | Throw + reject + do not persist |
-| Monad RPC disconnects | Reconnect with backoff, replay from last `blockNumber` |
+| Arbitrum RPC disconnects | Reconnect with backoff, replay from last `blockNumber` |
 | Username bytes mismatch | Normalize to lowercase before encoding |
 
 ---
@@ -829,9 +829,9 @@ export const subscriptionQueue = new Queue('subscription-queue', { connection: r
 - [ ] Scaffold `src/app.ts` + `src/server.ts` (Fastify + Bun)
 - [ ] Wire Prisma, Redis, Sensible plugins
 - [ ] `prisma migrate dev` with schema in section 7
-- [ ] Copy ABI arrays from `contract-ABIs/*.json` → `src/lib/monad/abis/*.abi.ts` as `as const` exports
-- [ ] Implement `src/lib/monad/client.ts` (publicClient + walletClient)
-- [ ] Implement `src/listeners/monad.listener.ts` — `DepositSuccessful` first, then all events in section 9
+- [ ] Copy ABI arrays from `contract-ABIs/*.json` → `src/lib/arbitrum/abis/*.abi.ts` as `as const` exports
+- [ ] Implement `src/lib/arbitrum/client.ts` (publicClient + walletClient)
+- [ ] Implement `src/listeners/arbitrum.listener.ts` — `DepositSuccessful` first, then all events in section 9
 - [ ] Implement `src/lib/card-issuer/index.ts` + `sudo.adapter.ts`
 - [ ] Implement `src/workers/deposit.worker.ts`
 - [ ] Implement `src/workers/topup.worker.ts`
@@ -866,6 +866,6 @@ export const subscriptionQueue = new Queue('subscription-queue', { connection: r
 - **Card creation:** Happens silently on first registration. User never requests it.
 - **Faucet write:** `claimFaucet()` is a write tx — use `walletClient` with `BACKEND_WALLET_PRIVATE_KEY`. Alternatively, let frontend call it directly and only listen for `FaucetClaimed` events.
 - **approve() step:** Frontend calls `RubbiToken.approve(MODAL_CONTRACT_ADDRESS, amount)` before deposit. Backend ignores this — only listens for `DepositSuccessful`.
-- **Listener startup:** Call `monad.listener.ts` inside Fastify `onReady` hook, after all plugins are registered.
+- **Listener startup:** Call `arbitrum.listener.ts` inside Fastify `onReady` hook, after all plugins are registered.
 - **Never store:** Full card numbers or CVV. Only `last4`, `expiryMonth`, `expiryYear`, `issuerId`.
 - **Contract addresses:** All 5 addresses come from the smart contracts dashboard. Set in `.env`. Do not hardcode.
