@@ -19,6 +19,7 @@ import { registerSubscriptionsRoutes } from "./modules/subscriptions/subscriptio
 import { registerTransactionsRoutes } from "./modules/transactions/transactions.routes.js"
 import { registerUsersRoutes } from "./modules/users/users.routes.js"
 import { registerWebhooksRoutes } from "./modules/webhooks/webhooks.routes.js"
+import { registerSalaryStreamingRoutes } from "./modules/salary-streaming/salary-streaming.routes.js"
 import { prismaPlugin } from "./plugins/prisma.js"
 import { redisPlugin } from "./plugins/redis.js"
 import { sensiblePlugin } from "./plugins/sensible.js"
@@ -113,6 +114,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     await registerTransactionsRoutes(api)
     await registerSubscriptionsRoutes(api)
     await registerFaucetRoutes(api)
+    await registerSalaryStreamingRoutes(api)
     await registerWebhooksRoutes(api)
   }, { prefix: "/api/v1" })
 
