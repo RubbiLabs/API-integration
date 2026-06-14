@@ -89,15 +89,12 @@ export async function getFees() {
 
 export async function verifyCreateStream(
   app: FastifyInstance,
-  walletAddress: string,
+  _walletAddress: string,
   txHash: string,
 ) {
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash as Hex,
   })
-
-  const normalizedWallet = walletAddress.toLowerCase()
-  let matched = false
 
   for (const log of receipt.logs) {
     try {
@@ -109,37 +106,27 @@ export async function verifyCreateStream(
 
       if (decoded.eventName !== "StreamCreated") continue
 
-      const args = decoded.args as { streamId?: bigint; recipient?: string }
-      if (args.recipient?.toLowerCase() === normalizedWallet) {
-        matched = true
-        return { txHash, streamId: args.streamId?.toString() ?? null, verified: true }
-      }
+      const args = decoded.args as { streamId?: bigint }
+      return { txHash, streamId: args.streamId?.toString() ?? null, verified: true }
     } catch {
       continue
     }
   }
 
-  if (!matched) {
-    throw app.httpErrors.badRequest(
-      "Transaction does not contain a StreamCreated event for the authenticated wallet",
-    )
-  }
-
-  return { txHash, verified: true, streamId: null }
+  throw app.httpErrors.badRequest(
+    "Transaction does not contain a StreamCreated event",
+  )
 }
 
 export async function verifyPauseStream(
   app: FastifyInstance,
-  walletAddress: string,
+  _walletAddress: string,
   streamId: number,
   txHash: string,
 ) {
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash as Hex,
   })
-
-  const normalizedWallet = walletAddress.toLowerCase()
-  let matched = false
 
   for (const log of receipt.logs) {
     try {
@@ -150,38 +137,26 @@ export async function verifyPauseStream(
       })
 
       if (decoded.eventName !== "StreamPaused") continue
-
-      const args = decoded.args as { recipient?: string; intervalType?: number }
-      if (args.recipient?.toLowerCase() === normalizedWallet) {
-        matched = true
-        break
-      }
+      return { txHash, streamId, verified: true }
     } catch {
       continue
     }
   }
 
-  if (!matched) {
-    throw app.httpErrors.badRequest(
-      "Transaction does not contain a StreamPaused event for the authenticated wallet",
-    )
-  }
-
-  return { txHash, streamId, verified: true }
+  throw app.httpErrors.badRequest(
+    "Transaction does not contain a StreamPaused event",
+  )
 }
 
 export async function verifyResumeStream(
   app: FastifyInstance,
-  walletAddress: string,
+  _walletAddress: string,
   streamId: number,
   txHash: string,
 ) {
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash as Hex,
   })
-
-  const normalizedWallet = walletAddress.toLowerCase()
-  let matched = false
 
   for (const log of receipt.logs) {
     try {
@@ -192,37 +167,25 @@ export async function verifyResumeStream(
       })
 
       if (decoded.eventName !== "StreamResumed") continue
-
-      const args = decoded.args as { recipient?: string; intervalType?: number }
-      if (args.recipient?.toLowerCase() === normalizedWallet) {
-        matched = true
-        break
-      }
+      return { txHash, streamId, verified: true }
     } catch {
       continue
     }
   }
 
-  if (!matched) {
-    throw app.httpErrors.badRequest(
-      "Transaction does not contain a StreamResumed event for the authenticated wallet",
-    )
-  }
-
-  return { txHash, streamId, verified: true }
+  throw app.httpErrors.badRequest(
+    "Transaction does not contain a StreamResumed event",
+  )
 }
 
 export async function verifyDisburse(
   app: FastifyInstance,
-  walletAddress: string,
+  _walletAddress: string,
   txHash: string,
 ) {
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: txHash as Hex,
   })
-
-  const normalizedWallet = walletAddress.toLowerCase()
-  let matched = false
 
   for (const log of receipt.logs) {
     try {
@@ -233,25 +196,13 @@ export async function verifyDisburse(
       })
 
       if (decoded.eventName !== "disbursementSuccessful") continue
-
-      const args = decoded.args as { sender?: string; recipient?: string }
-      if (
-        args.sender?.toLowerCase() === normalizedWallet ||
-        args.recipient?.toLowerCase() === normalizedWallet
-      ) {
-        matched = true
-        break
-      }
+      return { txHash, verified: true }
     } catch {
       continue
     }
   }
 
-  if (!matched) {
-    throw app.httpErrors.badRequest(
-      "Transaction does not contain a disbursementSuccessful event for the authenticated wallet",
-    )
-  }
-
-  return { txHash, verified: true }
+  throw app.httpErrors.badRequest(
+    "Transaction does not contain a disbursementSuccessful event",
+  )
 }

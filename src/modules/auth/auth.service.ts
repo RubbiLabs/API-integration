@@ -14,12 +14,19 @@ export async function registerUser(app: FastifyInstance, input: RegisterBody) {
   const walletAddress = normalizeWalletAddress(input.walletAddress)
   const username = input.username.trim().toLowerCase()
 
-  const onChain = await publicClient.readContract({
-    address: contractAddresses.auth,
-    abi: AuthenticationABI,
-    functionName: "getUserInfo",
-    args: [walletAddress as Hex],
-  })
+  let onChain: unknown
+  try {
+    onChain = await publicClient.readContract({
+      address: contractAddresses.auth,
+      abi: AuthenticationABI,
+      functionName: "getUserInfo",
+      args: [walletAddress as Hex],
+    })
+  } catch {
+    throw app.httpErrors.badRequest(
+      "Wallet is not registered on-chain. Call Authentication.createAccount from the user wallet first.",
+    )
+  }
 
   const maybeAddress = (onChain as { address_?: string }).address_
   if (!maybeAddress || maybeAddress === "0x0000000000000000000000000000000000000000") {
@@ -94,12 +101,17 @@ export async function registerUser(app: FastifyInstance, input: RegisterBody) {
 export async function loginUser(app: FastifyInstance, input: LoginBody) {
   const walletAddress = normalizeWalletAddress(input.walletAddress)
 
-  const onChain = await publicClient.readContract({
-    address: contractAddresses.auth,
-    abi: AuthenticationABI,
-    functionName: "getUserInfo",
-    args: [walletAddress as Hex],
-  })
+  let onChain: unknown
+  try {
+    onChain = await publicClient.readContract({
+      address: contractAddresses.auth,
+      abi: AuthenticationABI,
+      functionName: "getUserInfo",
+      args: [walletAddress as Hex],
+    })
+  } catch {
+    throw app.httpErrors.notFound("No on-chain account found for this wallet")
+  }
 
   const maybeAddress = (onChain as { address_?: string }).address_
 

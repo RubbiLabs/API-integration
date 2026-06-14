@@ -27,7 +27,7 @@ export async function registerWebhooksRoutes(app: FastifyInstance) {
           },
         },
         body: {
-          type: "object",
+          type: "string",
         },
         response: {
           200: {
