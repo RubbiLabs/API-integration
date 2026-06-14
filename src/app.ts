@@ -83,11 +83,27 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   })
 
-  app.get("/health", async () => ({
-    status: "ok",
-    service: "rubbi-api",
-    timestamp: new Date().toISOString(),
-  }))
+  app.get("/health", {
+    schema: {
+      tags: ["system"],
+      description: "Service health check",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+            service: { type: "string" },
+            timestamp: { type: "string", format: "date-time" },
+          },
+        },
+      },
+    },
+    handler: async () => ({
+      status: "ok",
+      service: "rubbi-api",
+      timestamp: new Date().toISOString(),
+    }),
+  })
 
   await app.register(async (api) => {
     await registerAuthRoutes(api)

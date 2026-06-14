@@ -19,6 +19,34 @@ export async function registerWebhooksRoutes(app: FastifyInstance) {
       schema: {
         tags: ["webhooks"],
         description: "Card issuer webhook endpoint with HMAC verification",
+        headers: {
+          type: "object",
+          properties: {
+            "x-sudo-signature": { type: "string" },
+            "x-signature": { type: "string" },
+          },
+        },
+        body: {
+          type: "object",
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              statusCode: { type: "number" },
+              data: {
+                type: "object",
+                properties: {
+                  responseCode: { type: "string" },
+                },
+              },
+              ok: { type: "boolean" },
+              ignored: { type: "boolean" },
+              duplicate: { type: "boolean" },
+              reason: { type: "string" },
+            },
+          },
+        },
       },
       handler: async (request, reply) => {
         const rawBody = request.body as string
